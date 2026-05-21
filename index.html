@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Analítico Sênior - Gestão de Devs</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    
+    <style>
+        :root {
+            --bg-color: #f8fafc; --card-bg: #ffffff; --text-main: #1e293b; 
+            --text-muted: #64748b; --primary: #3b82f6; --success: #10b981; --danger: #ef4444; --warning: #f59e0b; --purple: #8b5cf6;
+        }
+
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 24px; }
+        .container { max-width: 1600px; margin: 0 auto; }
+
+        /* Topo e Filtros */
+        .header-painel { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; flex-wrap: wrap; gap: 16px; }
+        h1 { margin: 0; font-size: 28px; font-weight: 700; color: #0f172a; }
+        p { margin: 4px 0 0 0; color: var(--text-muted); }
+
+        .filtros-container { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+        .filtro-wrapper { display: flex; align-items: center; gap: 12px; background: var(--card-bg); padding: 10px 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        select { padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; font-weight: bold; color: var(--primary); outline: none; cursor: pointer; }
+
+        /* Botão Exportar PDF */
+        .btn-pdf {
+            background-color: var(--danger); color: #ffffff; border: none; padding: 12px 20px; border-radius: 8px;
+            font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px;
+            box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.2); transition: all 0.2s ease-in-out;
+        }
+        .btn-pdf:hover { background-color: #dc2626; transform: translateY(-1px); }
+
+        /* Grid de Cartões */
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 32px; }
+        .kpi-card { background: var(--card-bg); padding: 18px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-left: 5px solid var(--primary); }
+        .kpi-card.sucesso { border-left-color: var(--success); }
+        .kpi-card.perigo { border-left-color: var(--danger); }
+        .kpi-card.alerta { border-left-color: var(--warning); }
+        .kpi-card.roxo { border-left-color: var(--purple); }
+        
+        .kpi-titulo-wrapper { display: flex; align-items: center; justify-content: space-between; }
+        .kpi-titulo { font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; letter-spacing: 0.5px; }
+        .kpi-valor { font-size: 28px; font-weight: 700; margin: 6px 0 2px 0; color: #0f172a;}
+        .kpi-detalhe { font-size: 11px; color: var(--text-muted); }
+
+        /* Estrutura de containers */
+        .charts-container-row { display: grid; grid-template-columns: 1fr; gap: 24px; margin-bottom: 24px; }
+        .charts-grid-two-columns { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-bottom: 24px; }
+        
+        @media (max-width: 1024px) {
+            .charts-grid-two-columns { grid-template-columns: 1fr; }
+        }
+        
+        .chart-card { background: var(--card-bg); padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); min-height: 340px; display: flex; flex-direction: column;}
+        .chart-card h3 { margin: 0 0 16px 0; font-size: 15px; color: #334155; font-weight: 600; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9; }
+        .canvas-wrapper { position: relative; flex-grow: 1; width: 100%; min-height: 260px;}
+
+        /* Tabela de Ranking */
+        .tabela-ranking { width: 100%; border-collapse: collapse; text-align: left; }
+        .tabela-ranking th, .tabela-ranking td { padding: 10px 10px; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+        .tabela-ranking th { font-weight: 600; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .badge-atraso { background: #fee2e2; color: #ef4444; padding: 4px 8px; border-radius: 6px; font-weight: bold; font-size: 11px; white-space: nowrap;}
+        .badge-status { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; white-space: nowrap; }
+        
+        .tarefa-nome { font-weight: 500; color: #0f172a; }
+        .tarefa-link { color: var(--primary); text-decoration: none; font-weight: 600; }
+        .tarefa-link:hover { color: #1d4ed8; text-decoration: underline; }
+
+        .page-break-section { page-break-before: always; }
+
+        /* =======================================================
+           REGRAS DE IMPRESSÃO RE-ESTABILIZADAS (A4 PORTRAIT)
+           ======================================================= */
+        @media print {
+            @page { size: A4 portrait; margin: 12mm; }
+            body { background-color: #ffffff; padding: 0; margin: 0; font-size: 11px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .btn-pdf, .filtros-container { display: none !important; }
+            .header-painel { margin-bottom: 15px; }
+            h1 { font-size: 18px; }
+            .kpi-grid { display: grid !important; grid-template-columns: repeat(4, 1fr) !important; gap: 6px !important; margin-bottom: 15px !important; }
+            .kpi-card { padding: 8px !important; border-radius: 6px !important; border: 1px solid #cbd5e1 !important; }
+            .kpi-valor { font-size: 16px !important; }
+            .kpi-detalhe { display: none !important; } 
+
+            .section-page1-block { display: block !important; width: 100% !important; page-break-inside: avoid !important; margin-bottom: 15px !important; }
+            .page-break-section { page-break-before: always !important; display: block !important; width: 100% !important; }
+            
+            .charts-grid-two-columns, .charts-container-row { display: block !important; width: 100% !important; }
+            .chart-card { display: block !important; width: 100% !important; min-height: 250px !important; border: 1px solid #cbd5e1 !important; page-break-inside: avoid !important; margin-bottom: 15px !important; padding: 12px !important; box-sizing: border-box !important; }
+            .tabela-ranking th, .tabela-ranking td { padding: 6px 4px !important; font-size: 10px !important; }
+            .canvas-wrapper { position: relative !important; width: 100% !important; height: 200px !important; min-height: 200px !important; max-height: 200px !important; display: block !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        
+        <div class="header-painel">
+            <div>
+                <h1>💻 Central de Operações e Performance - Devs</h1>
+                <p>Cockpit gerencial para análise de prazos, backlog de esforço e eficiência operacional</p>
+            </div>
+            
+            <div class="filtros-container">
+                <div class="filtro-wrapper">
+                    <label style="font-weight: 500;" for="filtroMes">Mês (Aba):</label>
+                    <select id="filtroMes">
+                        <option value="Maio/2026">Maio 2026</option>
+                        <option value="Abril/2026">Abril 2026</option>
+                    </select>
+                </div>
+
+                <div class="filtro-wrapper">
+                    <label style="font-weight: 500;" for="filtroDev">Analisar Dev:</label>
+                    <select id="filtroDev">
+                        <option value="Todos">Visão Geral (Todos)</option>
+                    </select>
+                </div>
+
+                <button class="btn-pdf" onclick="exportarParaPDF()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Exportar PDF
+                </button>
+            </div>
+        </div>
+
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-titulo-wrapper"><div class="kpi-titulo">Demandas Totais</div></div>
+                <div class="kpi-valor" id="kpiTotal">0</div>
+                <div class="kpi-detalhe">Escopo do período</div>
+            </div>
+            <div class="kpi-card sucesso">
+                <div class="kpi-titulo-wrapper"><div class="kpi-titulo">Qtd. Entregues</div></div>
+                <div class="kpi-valor" id="kpiEntregues">0</div>
+                <div class="kpi-detalhe">Foco na entrega do Dev</div>
+            </div>
+            <div class="kpi-card perigo">
+                <div class="kpi-titulo-wrapper"><div class="kpi-titulo">Qtd. Pendentes</div></div>
+                <div class="kpi-valor" id="kpiPendentes">0</div>
+                <div class="kpi-detalhe">Demandas em fluxo</div>
+            </div>
+            <div class="kpi-card alerta">
+                <div class="kpi-titulo-wrapper"><div class="kpi-titulo">Horas Previstas</div></div>
+                <div class="kpi-valor" id="kpiHoras">0h</div>
+                <div class="kpi-detalhe">Esforço total estimado</div>
+            </div>
+            <div class="kpi-card sucesso">
+                <div class="kpi-titulo-wrapper"><div class="kpi-titulo">Horas Entregues</div></div>
+                <div class="kpi-valor" id="kpiHorasRealizadas">0h</div>
+                <div class="kpi-detalhe">Esforço das entregas</div>
+            </div>
+            <div class="kpi-card perigo">
+                <div class="kpi-titulo-wrapper"><div class="kpi-titulo">Média de Atraso</div></div>
+                <div class="kpi-valor" id="kpiMediaAtraso">0d</div>
+                <div class="kpi-detalhe">Dias p/ tarefa atrasada</div>
+            </div>
+            <div class="kpi-card roxo">
+                <div class="kpi-titulo-wrapper"><div class="kpi-titulo">Taxa Postergação</div></div>
+                <div class="kpi-valor" id="kpiPostergacao">0%</div>
+                <div class="kpi-detalhe">Prazos renegociados</div>
+            </div>
+        </div>
+
+        <div class="charts-container-row section-page1-block">
+            <div class="chart-card" style="overflow-y: auto;">
+                <h3>🚨 Top Demandas com Mais Tempo em Atraso (Visão Crítica Imediata)</h3>
+                <div id="tabelaAtrasosContainer"></div>
+            </div>
+        </div>
+
+        <div class="charts-container-row section-page1-block">
+            <div class="chart-card">
+                <h3>Top Atividades por Projeto (Volume)</h3>
+                <div class="canvas-wrapper"><canvas id="chartProjetosQtd"></canvas></div>
+            </div>
+        </div>
+
+
+        <div class="page-break-section">
+            <div class="charts-grid-two-columns">
+                <div class="chart-card">
+                    <h3>Distribuição de Status Atual (Mapeamento de Gargalos)</h3>
+                    <div class="canvas-wrapper"><canvas id="chartStatus"></canvas></div>
+                </div>
+                
+                <div class="chart-card">
+                    <h3>Gargalo Estágico: Horas Retidas em QA por Projeto</h3>
+                    <div class="canvas-wrapper"><canvas id="chartQAGargaloHoras"></canvas></div>
+                </div>
+            </div>
+
+            <div class="charts-container-row">
+                <div class="chart-card">
+                    <h3>Backlog de Horas Pendentes por Desenvolvedor</h3>
+                    <div class="canvas-wrapper"><canvas id="chartDevsBacklog"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        Chart.register(ChartDataLabels);
+
+        const idPlanilha = '1r7VuxUTRUzbTiAGmrhex5L5L2kSpSUCcatTCKLZAM9k';
+        let dadosBrutos = [];
+        let instanciasGraficos = {};
+
+        // Dicionário Unificado de Cores
+        const mapaCoresStatus = {
+            'EM QA': '#d5a6bd', 'NECESSITA CORRECAO': '#ea4335', 'EM DESENVOLVIMENTO': '#ffe599',      
+            'APROVADO': '#b6d7a8', 'HOMOLOGACAO CLIENTE': '#6fa8dc', 'OMOLOGACAO CLIENTE': '#6fa8dc',     
+            'LIBERADO DEPLOY': '#999999', 'AGUARDANDO PENDENCIAS': '#674ea7', 'PARA FAZER': '#f6b26b',              
+            'AGUARDANDO PRODUCAO': '#e6b8af', 'LIBERADO FORMALIZACAO': '#c9daf8', 'IMPEDIMENTOS': '#783f04',            
+            'CONCLUIDO': '#10b981', 'PAUSADA': '#f59e0b'
+        };
+
+        function copyDataAndCalculate(nomeAba) {
+            const urlCSV = `https://docs.google.com/spreadsheets/d/${idPlanilha}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(nomeAba)}`;
+            
+            Papa.parse(urlCSV, {
+                download: true,
+                header: true,
+                transformHeader: function(header) { return header.trim(); },
+                complete: function(results) {
+                    dadosBrutos = results.data.filter(linha => linha.Projeto && linha.Projeto.trim() !== "");
+                    
+                    dadosBrutos.forEach(item => {
+                        item.HorasTratadas = parseFloat(String(item.Horas || '0').replace(',', '.')) || 0;
+                        item.StatusPadronizado = String(item.Status || '').trim().toUpperCase()
+                                                    .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+                        function extrairDataPure(str) {
+                            if (!str || str.trim() === "" || str.trim() === "-") return null;
+                            const partes = str.trim().split('/');
+                            let d;
+                            if (partes.length === 3) {
+                                d = new Date(parseInt(partes[2], 10), parseInt(partes[1], 10) - 1, parseInt(partes[0], 10));
+                            } else { d = new Date(str); }
+                            if (d && !isNaN(d.getTime())) { d.setHours(0, 0, 0, 0); return d; }
+                            return null;
+                        }
+
+                        const dataInicial = extrairDataPure(item['Data Prometida Inicial']);
+                        const dataFinal = extrairDataPure(item['Data Prometida Final']);
+                        const dataEntrega = extrairDataPure(item['Data Entregue']) || extrairDataPure(item['Data QA ok']) || extrairDataPure(item['Data Cliente OK']);
+
+                        const dataPrazoAlvo = dataFinal || dataInicial;
+                        item.DataPrazoFormatada = dataPrazoAlvo ? dataPrazoAlvo.toLocaleDateString('pt-BR') : '-';
+                        item.LinkTarefaReal = item['Link da Tarefa'] || item['Link'] || '';
+
+                        item.IsEntregueSucesso = [
+                            'APROVADO', 'OMOLOGACAO CLIENTE', 'HOMOLOGACAO CLIENTE', 
+                            'LIBERADO DEPLOY', 'AGUARDANDO PRODUCAO', 'LIBERADO FORMALIZACAO', 'CONCLUIDO'
+                        ].includes(item.StatusPadronizado);
+
+                        // Identifica se a tarefa está retida ativamente em alguma subetapa de validação/QA
+                        item.IsRetidoEmQA = ['EM QA', 'NECESSITA CORRECAO', 'HOMOLOGACAO CLIENTE', 'OMOLOGACAO CLIENTE'].includes(item.StatusPadronizado);
+
+                        let diasAtraso = 0;
+                        if (dataPrazoAlvo) {
+                            if (dataEntrega) {
+                                const diff = dataEntrega.getTime() - dataPrazoAlvo.getTime();
+                                diasAtraso = Math.round(diff / (1000 * 60 * 60 * 24));
+                            } else if (!item.IsEntregueSucesso) {
+                                const hoje = new Date(2026, 4, 21);
+                                hoje.setHours(0, 0, 0, 0);
+                                const diff = hoje.getTime() - dataPrazoAlvo.getTime();
+                                diasAtraso = Math.round(diff / (1000 * 60 * 60 * 24));
+                            }
+                        }
+
+                        item.AtrasoTratado = diasAtraso > 0 ? diasAtraso : 0;
+                        const colPostergado = String(item['Postergação'] || '').trim().toUpperCase();
+                        item.FoiPostergado = (dataInicial && dataFinal && dataInicial.getTime() !== dataFinal.getTime()) || colPostergado === 'SIM';
+                    });
+
+                    preencherFiltroDev();
+                    processarEAtualizarTudo(dadosBrutos);
+                }
+            });
+        }
+
+        function preencherFiltroDev() {
+            const select = document.getElementById('filtroDev');
+            select.innerHTML = '<option value="Todos">Visão Geral (Todos)</option>'; 
+            const devs = [...new Set(dadosBrutos.map(i => i['Dev Responsável']).filter(Boolean))].sort();
+            devs.forEach(dev => {
+                const opt = document.createElement('option');
+                opt.value = dev; opt.textContent = dev;
+                select.appendChild(opt);
+            });
+        }
+
+        function processarEAtualizarTudo(dados) {
+            const totalDemandas = dados.length;
+            const totalHoras = dados.reduce((acc, item) => acc + item.HorasTratadas, 0);
+            const demandasEntregues = dados.filter(i => i.IsEntregueSucesso);
+            const entregues = demandasEntregues.length;
+            const pendentes = totalDemandas - entregues;
+            const horasRealizadas = demandasEntregues.reduce((acc, item) => acc + item.HorasTratadas, 0);
+            
+            const demandasAtrasadas = dados.filter(i => i.AtrasoTratado > 0);
+            const somaAtrasos = demandasAtrasadas.reduce((acc, item) => acc + item.AtrasoTratado, 0);
+            const mediaAtraso = demandasAtrasadas.length > 0 ? (somaAtrasos / demandasAtrasadas.length).toFixed(1) : 0;
+            const totalPostergadas = dados.filter(i => i.FoiPostergado).length;
+            const taxaPostergacao = totalDemandas > 0 ? Math.round((totalPostergadas / totalDemandas) * 100) : 0;
+            
+            document.getElementById('kpiTotal').textContent = totalDemandas;
+            document.getElementById('kpiEntregues').textContent = entregues;
+            document.getElementById('kpiPendentes').textContent = pendentes;
+            document.getElementById('kpiHoras').textContent = totalHoras.toFixed(1) + 'h';
+            document.getElementById('kpiHorasRealizadas').textContent = horasRealizadas.toFixed(1) + 'h';
+            document.getElementById('kpiMediaAtraso').textContent = mediaAtraso + 'd';
+            document.getElementById('kpiPostergacao').textContent = taxaPostergacao + '%';
+
+            // Tabela Corrigida (Limpa, Direta e com Hiperlinks)
+            const rankingAtrasos = [...demandasAtrasadas].sort((a, b) => b.AtrasoTratado - a.AtrasoTratado).slice(0, 6); 
+            const divRanking = document.getElementById('tabelaAtrasosContainer');
+            
+            if (rankingAtrasos.length === 0) {
+                divRanking.innerHTML = '<p style="text-align:center; color: #10b981; font-weight:bold; margin-top: 20px;">🎉 Nenhuma demanda em atraso!</p>';
+            } else {
+                let htmlTabela = '<table class="tabela-ranking"><tr><th>Tarefa</th><th>Projeto</th><th>Dev</th><th>Previsto</th><th>Prazo Alvo</th><th>Status</th><th>Atraso</th></tr>';
+                rankingAtrasos.forEach(item => {
+                    const dev = item['Dev Responsável'] ? item['Dev Responsável'].split(' ')[0] : '-';
+                    
+                    let celulaTarefa = '';
+                    if(item.LinkTarefaReal && item.LinkTarefaReal.trim() !== "" && item.LinkTarefaReal.trim() !== "-") {
+                        celulaTarefa = `<a class="tarefa-link" href="${item.LinkTarefaReal.trim()}" target="_blank">${item.Tarefa}</a>`;
+                    } else { celulaTarefa = item.Tarefa || '-'; }
+                    
+                    const statusLimpo = (item.Status || '').trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                    const corFundo = mapaCoresStatus[statusLimpo] || '#f1f5f9';
+                    const fundosEscuros = ['IMPEDIMENTOS', 'AGUARDANDO PENDENCIAS', 'NECESSITA CORRECAO', 'LIBERADO DEPLOY'];
+                    const colTexto = fundosEscuros.includes(statusLimpo) ? '#ffffff' : '#1e293b';
+                    
+                    htmlTabela += `<tr>
+                        <td class="tarefa-nome">${celulaTarefa}</td>
+                        <td>${item.Projeto || '-'}</td>
+                        <td>${dev}</td>
+                        <td style="font-weight:600; color:#475569;">${item.HorasTratadas.toFixed(1)}h</td>
+                        <td style="color:#475569; font-weight:500;">${item.DataPrazoFormatada}</td>
+                        <td><span class="badge-status" style="background-color: ${corFundo}; color: ${colTexto};">${item.Status || '-'}</span></td>
+                        <td><span class="badge-atraso">${item.AtrasoTratado} dias</span></td>
+                    </tr>`;
+                });
+                htmlTabela += '</table>';
+                divRanking.innerHTML = htmlTabela;
+            }
+
+            // Gráfico 1: Projetos
+            const qtdPorProjeto = {};
+            dados.forEach(i => { const p = i.Projeto || 'Sem Projeto'; qtdPorProjeto[p] = (qtdPorProjeto[p] || 0) + 1; });
+            let projOrdenados = Object.entries(qtdPorProjeto).sort((a,b) => b[1] - a[1]);
+
+            if (projOrdenados.length > 6) {
+                const topProjetos = projOrdenados.slice(0, 6);
+                const outros = projOrdenados.slice(6);
+                const somaOutros = outros.reduce((acc, curr) => acc + curr[1], 0);
+                topProjetos.push([`Outros (${outros.length})`, somaOutros]);
+                projOrdenados = topProjetos;
+            }
+
+            atualizarOuCriarChart('chartProjetosQtd', 'bar', projOrdenados.map(x => x[0]), [{
+                label: 'Qtd de Atividades', data: projOrdenados.map(x => x[1]), backgroundColor: '#3b82f6', borderRadius: 6
+            }], { 
+                plugins: { legend: { display: false }, datalabels: { display: true, anchor: 'end', align: 'top', color: '#1e293b', font: { weight: 'bold', size: 11 } } } 
+            });
+
+            // Gráfico 2: Status (Datalabels Ativados e Fixados na Renderização)
+            const statusAgrupado = {};
+            dados.forEach(i => { const s = i.Status || 'Sem Status'; statusAgrupado[s] = (statusAgrupado[s] || 0) + 1; });
+            
+            const paletaExtra = ['#0ea5e9', '#ec4899', '#14b8a6', '#f43f5e', '#6366f1', '#84cc16'];
+            let indexExtra = 0;
+
+            const bgColorsStatus = Object.keys(statusAgrupado).map(status => {
+                const upper = status.trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                if (mapaCoresStatus[upper]) return mapaCoresStatus[upper];
+                const cor = paletaExtra[indexExtra % paletaExtra.length];
+                indexExtra++;
+                return cor;
+            });
+
+            atualizarOuCriarChart('chartStatus', 'doughnut', Object.keys(statusAgrupado), [{
+                data: Object.values(statusAgrupado), backgroundColor: bgColorsStatus, borderWidth: 2
+            }], { 
+                cutout: '55%',
+                plugins: { 
+                    legend: { position: 'right', labels: { boxWidth: 12, font: { size: 11 } } }, 
+                    datalabels: { display: true, color: '#1e293b', font: { weight: 'bold', size: 12 }, formatter: (v) => v }
+                } 
+            });
+
+            // NOVO GRÁFICO 3: Mapeamento de Gargalo Estratégico de Horas em QA por Projeto
+            const qaHorasProjeto = {};
+            dados.forEach(i => {
+                if (i.IsRetidoEmQA) {
+                    const p = i.Projeto || 'Sem Projeto';
+                    qaHorasProjeto[p] = (qaHorasProjeto[p] || 0) + i.HorasTratadas;
+                }
+            });
+            const qaOrdenado = Object.entries(qaHorasProjeto).sort((a,b) => b[1] - a[1]).slice(0,6);
+
+            atualizarOuCriarChart('chartQAGargaloHoras', 'bar', qaOrdenado.map(x => x[0]), [{
+                label: 'Horas Retidas em Fluxo de Testes', data: qaOrdenado.map(x => x[1]), backgroundColor: '#d5a6bd', borderRadius: 6
+            }], {
+                plugins: {
+                    legend: { display: false },
+                    datalabels: { display: true, anchor: 'end', align: 'top', color: '#1e293b', formatter: (v) => v.toFixed(1) + 'h', font: { weight: 'bold', size: 11 } }
+                }
+            });
+
+            // Gráfico 4: Backlog por Dev (Datalabels em Duas Linhas Garantidos)
+            const backlogInfos = {};
+            dados.forEach(i => {
+                if (!i.IsEntregueSucesso) { 
+                    const d = i['Dev Responsável'] || 'Não Atribuído';
+                    if (!backlogInfos[d]) backlogInfos[d] = { horas: 0, tarefas: 0 };
+                    backlogInfos[d].horas += i.HorasTratadas;
+                    backlogInfos[d].tarefas += 1;
+                }
+            });
+            
+            atualizarOuCriarChart('chartDevsBacklog', 'bar', Object.keys(backlogInfos), [{
+                label: 'Horas de Backlog', data: Object.values(backlogInfos).map(v => v.horas), backgroundColor: '#8b5cf6', borderRadius: 6
+            }], { 
+                plugins: { 
+                    legend: { display: false }, 
+                    datalabels: { 
+                        display: true, anchor: 'end', align: 'top', color: '#1e293b', textAlign: 'center',
+                        formatter: (v, context) => {
+                            const devNome = context.chart.data.labels[context.dataIndex];
+                            const qtdTarefas = backlogInfos[devNome] ? backlogInfos[devNome].tarefas : 0;
+                            return v.toFixed(1) + 'h\n(' + qtdTarefas + ' tar)'; 
+                        }, 
+                        font: { weight: 'bold', size: 10 } 
+                    } 
+                } 
+            });
+        }
+
+        function atualizarOuCriarChart(idCanvas, tipo, labels, datasets, opcoesExtras = {}) {
+            if (instanciasGraficos[idCanvas]) {
+                instanciasGraficos[idCanvas].data.labels = labels;
+                instanciasGraficos[idCanvas].data.datasets = datasets;
+                // Força a reativação dos plugins durante atualizações dinâmicas
+                if (opcoesExtras.plugins && opcoesExtras.plugins.datalabels) {
+                    instanciasGraficos[idCanvas].options.plugins.datalabels = opcoesExtras.plugins.datalabels;
+                }
+                instanciasGraficos[idCanvas].update();
+            } else {
+                const ctx = document.getElementById(idCanvas).getContext('2d');
+                const opcoesBase = { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    layout: { padding: { top: 25, bottom: 5 } },
+                    scales: tipo === 'bar' ? { 
+                        y: { beginAtZero: true, grace: '15%' },
+                        x: { ticks: { autoSkip: false, maxRotation: 30, minRotation: 0, font: { size: 10 } } }
+                    } : {} 
+                };
+                Object.assign(opcoesBase, opcoesExtras);
+                instanciasGraficos[idCanvas] = new Chart(ctx, { type: tipo, data: { labels: labels, datasets: datasets }, options: opcoesBase });
+            }
+        }
+
+        function exportarParaPDF() {
+            const mesStr = document.getElementById('filtroMes').value.replace('/', '-');
+            const devStr = document.getElementById('filtroDev').value;
+            document.title = `Relatorio_Performance_${mesStr}_${devStr}`;
+            prepararGraficosParaImpressao();
+            requestAnimationFrame(() => {
+                window.print();
+            });
+        }
+
+        // Garante que o motor do Chart.js injete os datalabels fixos antes do print do navegador
+        function prepararGraficosParaImpressao() {
+            const chartStatus = instanciasGraficos.chartStatus;
+            if (chartStatus) {
+                chartStatus.options.plugins.legend.position = 'bottom';
+                chartStatus.options.plugins.legend.labels.boxWidth = 10;
+                chartStatus.options.plugins.legend.labels.font = { size: 9 };
+                chartStatus.options.plugins.datalabels.display = true; // Força re-render
+                chartStatus.resize(680, 250);
+                chartStatus.update('none');
+            }
+            Object.values(instanciasGraficos).forEach(chart => {
+                chart.options.plugins.datalabels.display = true;
+                chart.update('none');
+            });
+        }
+
+        function restaurarGraficosAposImpressao() {
+            const chartStatus = instanciasGraficos.chartStatus;
+            if (chartStatus) {
+                chartStatus.options.plugins.legend.position = 'right';
+                chartStatus.options.plugins.legend.labels.boxWidth = 12;
+                chartStatus.options.plugins.legend.labels.font = { size: 11 };
+            }
+            Object.values(instanciasGraficos).forEach(chart => {
+                chart.resize();
+                chart.update('none');
+            });
+        }
+
+        window.addEventListener('beforeprint', prepararGraficosParaImpressao);
+        window.addEventListener('afterprint', restaurarGraficosAposImpressao);
+
+        copyDataAndCalculate(document.getElementById('filtroMes').value);
+        document.getElementById('filtroMes').addEventListener('change', (e) => copyDataAndCalculate(e.target.value));
+        document.getElementById('filtroDev').addEventListener('change', (e) => {
+            const dev = e.target.value;
+            const filtrados = dev === 'Todos' ? dadosBrutos : dadosBrutos.filter(i => i['Dev Responsável'] === dev);
+            processarEAtualizarTudo(filtrados);
+        });
+    </script>
+</body>
+</html>
