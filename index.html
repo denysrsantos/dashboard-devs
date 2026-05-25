@@ -24,7 +24,19 @@
 
         .filtros-container { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
         .filtro-wrapper { display: flex; align-items: center; gap: 12px; background: var(--card-bg); padding: 10px 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        select { padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; font-weight: bold; color: var(--primary); outline: none; cursor: pointer; }
+        select, input[type="search"] { padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 14px; font-weight: 600; color: var(--primary); outline: none; }
+        select { cursor: pointer; }
+        input[type="search"] { min-width: 260px; color: var(--text-main); font-weight: 500; }
+        .multi-select { position: relative; min-width: 220px; }
+        .multi-select-button { width: 100%; text-align: left; background: #ffffff; color: var(--primary); border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 34px 8px 12px; font-size: 14px; font-weight: 700; cursor: pointer; position: relative; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .multi-select-button::after { content: '▾'; position: absolute; right: 12px; color: #64748b; }
+        .multi-select.open .multi-select-button::after { content: '▴'; }
+        .multi-select-menu { display: none; position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; width: 320px; max-height: 280px; overflow-y: auto; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 16px 30px rgba(15, 23, 42, 0.16); padding: 8px; }
+        .multi-select.open .multi-select-menu { display: block; }
+        .multi-select-option { display: flex; align-items: center; gap: 8px; padding: 8px 8px; border-radius: 6px; font-size: 13px; color: #334155; cursor: pointer; }
+        .multi-select-option:hover { background: #f1f5f9; }
+        .multi-select-option input { margin: 0; }
+        .multi-select-separator { height: 1px; background: #e2e8f0; margin: 6px 0; }
 
         /* Botão Exportar PDF */
         .btn-pdf {
@@ -69,6 +81,16 @@
         .tarefa-nome { font-weight: 500; color: #0f172a; }
         .tarefa-link { color: var(--primary); text-decoration: none; font-weight: 600; }
         .tarefa-link:hover { color: #1d4ed8; text-decoration: underline; }
+        .accordion-list { display: flex; flex-direction: column; gap: 12px; }
+        .accordion-item { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #ffffff; }
+        .accordion-item summary { cursor: pointer; padding: 12px 14px; font-weight: 700; color: #334155; background: #f8fafc; list-style: none; display: flex; align-items: center; gap: 12px; }
+        .accordion-item summary::-webkit-details-marker { display: none; }
+        .accordion-title { flex: 1; min-width: 0; }
+        .accordion-meta { margin-left: auto; display: inline-flex; align-items: center; gap: 18px; }
+        .accordion-toggle { font-size: 18px; color: var(--primary); min-width: 14px; text-align: center; }
+        .accordion-toggle::before { content: '+'; }
+        .accordion-item[open] .accordion-toggle::before { content: '-'; }
+        .accordion-content { padding: 14px; overflow-x: auto; }
 
         .page-break-section { page-break-before: always; }
 
@@ -122,6 +144,26 @@
                     </select>
                 </div>
 
+                <div class="filtro-wrapper">
+                    <label style="font-weight: 500;" for="btnFiltroProjeto">Projeto:</label>
+                    <div class="multi-select" id="multiProjeto">
+                        <button type="button" class="multi-select-button" id="btnFiltroProjeto">Todos</button>
+                        <div class="multi-select-menu" id="listaProjetos"></div>
+                    </div>
+                </div>
+
+                <div class="filtro-wrapper">
+                    <label style="font-weight: 500;" for="filtroStatus">Status:</label>
+                    <select id="filtroStatus">
+                        <option value="Todos">Todos</option>
+                    </select>
+                </div>
+
+                <div class="filtro-wrapper">
+                    <label style="font-weight: 500;" for="buscaAtividade">Atividade:</label>
+                    <input type="search" id="buscaAtividade" placeholder="Pesquisar no nome">
+                </div>
+
                 <button class="btn-pdf" onclick="exportarParaPDF()">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                     Exportar PDF
@@ -168,15 +210,24 @@
         </div>
 
         <div class="charts-container-row section-page1-block">
-            <div class="chart-card" style="overflow-y: auto;">
-                <h3>🚨 Top Demandas com Mais Tempo em Atraso (Visão Crítica Imediata)</h3>
-                <div id="tabelaAtrasosContainer"></div>
+            <div class="chart-card">
+                <h3>Conferência de Atividades</h3>
+                <div class="accordion-list">
+                    <details class="accordion-item" open>
+                        <summary><span class="accordion-title">Atividades Não Entregues Ordenadas pelo Maior Atraso</span><span class="accordion-meta"><span id="contadorPendentesAtrasadas">0</span><span class="accordion-toggle"></span></span></summary>
+                        <div class="accordion-content" id="tabelaAtrasosContainer"></div>
+                    </details>
+                    <details class="accordion-item">
+                        <summary><span class="accordion-title">Atividades Entregues</span><span class="accordion-meta"><span id="contadorEntreguesTabela">0</span><span class="accordion-toggle"></span></span></summary>
+                        <div class="accordion-content" id="tabelaEntreguesContainer"></div>
+                    </details>
+                </div>
             </div>
         </div>
 
         <div class="charts-container-row section-page1-block">
             <div class="chart-card">
-                <h3>Top Atividades por Projeto (Volume)</h3>
+                <h3>Top Atividades por Projeto: Previsto x Realizado</h3>
                 <div class="canvas-wrapper"><canvas id="chartProjetosQtd"></canvas></div>
             </div>
         </div>
@@ -190,7 +241,7 @@
                 </div>
                 
                 <div class="chart-card">
-                    <h3>Gargalo Estágico: Horas Retidas em QA por Projeto</h3>
+                    <h3>Gargalo: Horas Retidas em QA por Projeto</h3>
                     <div class="canvas-wrapper"><canvas id="chartQAGargaloHoras"></canvas></div>
                 </div>
             </div>
@@ -221,11 +272,49 @@
             'CONCLUIDO': '#10b981', 'PAUSADA': '#f59e0b'
         };
 
+        function normalizarUrlTarefa(item) {
+            const possiveisColunas = [
+                'Link da Tarefa', 'Link Tarefa', 'URL da Tarefa', 'Url da Tarefa',
+                'Link', 'URL', 'Url', 'Tarefa Link'
+            ];
+
+            for (const coluna of possiveisColunas) {
+                const valor = String(item[coluna] || '').trim();
+                if (/^https?:\/\//i.test(valor)) return valor;
+            }
+
+            const tarefa = String(item.Tarefa || '');
+            const urlNaTarefa = tarefa.match(/https?:\/\/\S+/i);
+            return urlNaTarefa ? urlNaTarefa[0] : '';
+        }
+
+        function extrairDataPure(str) {
+            if (!str || String(str).trim() === "" || String(str).trim() === "-") return null;
+            const valor = String(str).trim();
+            const partes = valor.split('/');
+            let d;
+            if (partes.length === 3) {
+                d = new Date(parseInt(partes[2], 10), parseInt(partes[1], 10) - 1, parseInt(partes[0], 10));
+            } else {
+                d = new Date(valor);
+            }
+            if (d && !isNaN(d.getTime())) {
+                d.setHours(0, 0, 0, 0);
+                return d;
+            }
+            return null;
+        }
+
         function copyDataAndCalculate(nomeAba) {
             const urlCSV = `https://docs.google.com/spreadsheets/d/${idPlanilha}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(nomeAba)}`;
-            
-            Papa.parse(urlCSV, {
-                download: true,
+
+            fetch(urlCSV)
+                .then(response => {
+                    if (!response.ok) throw new Error('Falha ao carregar CSV da planilha');
+                    return response.text();
+                })
+                .then(csvText => {
+                    Papa.parse(csvText, {
                 header: true,
                 transformHeader: function(header) { return header.trim(); },
                 complete: function(results) {
@@ -236,24 +325,13 @@
                         item.StatusPadronizado = String(item.Status || '').trim().toUpperCase()
                                                     .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-                        function extrairDataPure(str) {
-                            if (!str || str.trim() === "" || str.trim() === "-") return null;
-                            const partes = str.trim().split('/');
-                            let d;
-                            if (partes.length === 3) {
-                                d = new Date(parseInt(partes[2], 10), parseInt(partes[1], 10) - 1, parseInt(partes[0], 10));
-                            } else { d = new Date(str); }
-                            if (d && !isNaN(d.getTime())) { d.setHours(0, 0, 0, 0); return d; }
-                            return null;
-                        }
-
                         const dataInicial = extrairDataPure(item['Data Prometida Inicial']);
                         const dataFinal = extrairDataPure(item['Data Prometida Final']);
                         const dataEntrega = extrairDataPure(item['Data Entregue']) || extrairDataPure(item['Data QA ok']) || extrairDataPure(item['Data Cliente OK']);
 
                         const dataPrazoAlvo = dataFinal || dataInicial;
                         item.DataPrazoFormatada = dataPrazoAlvo ? dataPrazoAlvo.toLocaleDateString('pt-BR') : '-';
-                        item.LinkTarefaReal = item['Link da Tarefa'] || item['Link'] || '';
+                        item.LinkTarefaReal = normalizarUrlTarefa(item);
 
                         item.IsEntregueSucesso = [
                             'APROVADO', 'OMOLOGACAO CLIENTE', 'HOMOLOGACAO CLIENTE', 
@@ -269,7 +347,7 @@
                                 const diff = dataEntrega.getTime() - dataPrazoAlvo.getTime();
                                 diasAtraso = Math.round(diff / (1000 * 60 * 60 * 24));
                             } else if (!item.IsEntregueSucesso) {
-                                const hoje = new Date(2026, 4, 21);
+                                const hoje = new Date();
                                 hoje.setHours(0, 0, 0, 0);
                                 const diff = hoje.getTime() - dataPrazoAlvo.getTime();
                                 diasAtraso = Math.round(diff / (1000 * 60 * 60 * 24));
@@ -277,25 +355,190 @@
                         }
 
                         item.AtrasoTratado = diasAtraso > 0 ? diasAtraso : 0;
+                        item.IsPendente = !item.IsEntregueSucesso;
+                        let atrasoPendente = 0;
+                        if (item.IsPendente && dataPrazoAlvo) {
+                            const hoje = new Date();
+                            hoje.setHours(0, 0, 0, 0);
+                            atrasoPendente = Math.round((hoje.getTime() - dataPrazoAlvo.getTime()) / (1000 * 60 * 60 * 24));
+                        }
+                        item.AtrasoPendente = atrasoPendente > 0 ? atrasoPendente : 0;
                         const colPostergado = String(item['Postergação'] || '').trim().toUpperCase();
                         item.FoiPostergado = (dataInicial && dataFinal && dataInicial.getTime() !== dataFinal.getTime()) || colPostergado === 'SIM';
                     });
 
-                    preencherFiltroDev();
-                    processarEAtualizarTudo(dadosBrutos);
+                    preencherFiltros();
+                    aplicarFiltros();
                 }
             });
+                })
+                .catch(error => {
+                    console.error('Erro ao carregar planilha:', error);
+                });
         }
 
-        function preencherFiltroDev() {
-            const select = document.getElementById('filtroDev');
-            select.innerHTML = '<option value="Todos">Visão Geral (Todos)</option>'; 
-            const devs = [...new Set(dadosBrutos.map(i => i['Dev Responsável']).filter(Boolean))].sort();
-            devs.forEach(dev => {
+        function normalizarTextoBusca(texto) {
+            return String(texto || '').trim().toUpperCase()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        }
+
+        function normalizarChaveFiltro(texto) {
+            return normalizarTextoBusca(texto).replace(/\s+/g, ' ');
+        }
+
+        function valoresUnicosNormalizados(valores) {
+            const mapa = new Map();
+
+            valores.forEach(valor => {
+                const texto = String(valor || '').trim().replace(/\s+/g, ' ');
+                const chave = normalizarChaveFiltro(texto);
+                if (texto && !mapa.has(chave)) {
+                    mapa.set(chave, texto);
+                }
+            });
+
+            return [...mapa.values()].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+        }
+
+        function obterChaveProjeto(projeto) {
+            const nome = String(projeto || '').trim().replace(/\s+/g, ' ');
+            return normalizarChaveFiltro(nome || 'Sem Projeto');
+        }
+
+        function obterNomeProjeto(projeto) {
+            return String(projeto || '').trim().replace(/\s+/g, ' ') || 'Sem Projeto';
+        }
+
+        function escaparHtml(valor) {
+            return String(valor || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function preencherSelect(id, rotuloTodos, valores) {
+            const select = document.getElementById(id);
+            const valorAnterior = select.value;
+            select.innerHTML = `<option value="Todos">${rotuloTodos}</option>`;
+
+            valores.forEach(valor => {
                 const opt = document.createElement('option');
-                opt.value = dev; opt.textContent = dev;
+                opt.value = valor;
+                opt.textContent = valor;
                 select.appendChild(opt);
             });
+
+            select.value = valores.includes(valorAnterior) ? valorAnterior : 'Todos';
+        }
+
+        function obterProjetosSelecionados() {
+            return [...document.querySelectorAll('#listaProjetos input[data-projeto]:checked')]
+                .map(input => input.value);
+        }
+
+        function atualizarRotuloProjeto() {
+            const selecionados = obterProjetosSelecionados();
+            const btn = document.getElementById('btnFiltroProjeto');
+            if (selecionados.length === 0) {
+                btn.textContent = 'Todos';
+            } else if (selecionados.length === 1) {
+                btn.textContent = selecionados[0];
+            } else {
+                btn.textContent = `${selecionados.length} projetos`;
+            }
+        }
+
+        function preencherFiltroProjeto(projetos) {
+            const lista = document.getElementById('listaProjetos');
+            const selecionadosAntes = obterProjetosSelecionados().map(normalizarChaveFiltro);
+            const manterTodos = selecionadosAntes.length === 0;
+
+            let html = '<label class="multi-select-option"><input type="checkbox" id="projetoTodos"> Todos</label><div class="multi-select-separator"></div>';
+            html += projetos.map(projeto => {
+                const checked = !manterTodos && selecionadosAntes.includes(normalizarChaveFiltro(projeto)) ? 'checked' : '';
+                return `<label class="multi-select-option"><input type="checkbox" data-projeto value="${escaparHtml(projeto)}" ${checked}> ${escaparHtml(projeto)}</label>`;
+            }).join('');
+
+            lista.innerHTML = html;
+            document.getElementById('projetoTodos').checked = manterTodos;
+            atualizarRotuloProjeto();
+        }
+
+        function preencherFiltros() {
+            const devs = valoresUnicosNormalizados(dadosBrutos.map(i => i['Dev Responsável']));
+            const projetos = valoresUnicosNormalizados(dadosBrutos.map(i => i.Projeto));
+            const status = valoresUnicosNormalizados(dadosBrutos.map(i => i.Status));
+
+            preencherSelect('filtroDev', 'Visão Geral (Todos)', devs);
+            preencherFiltroProjeto(projetos);
+            preencherSelect('filtroStatus', 'Todos', status);
+        }
+
+        function aplicarFiltros() {
+            const dev = document.getElementById('filtroDev').value;
+            const projetosSelecionados = obterProjetosSelecionados().map(normalizarChaveFiltro);
+            const status = document.getElementById('filtroStatus').value;
+            const busca = normalizarTextoBusca(document.getElementById('buscaAtividade').value);
+
+            const filtrados = dadosBrutos.filter(item => {
+                const mesmoDev = dev === 'Todos' || normalizarChaveFiltro(item['Dev Responsável']) === normalizarChaveFiltro(dev);
+                const mesmoProjeto = projetosSelecionados.length === 0 || projetosSelecionados.includes(normalizarChaveFiltro(item.Projeto));
+                const mesmoStatus = status === 'Todos' || normalizarChaveFiltro(item.Status) === normalizarChaveFiltro(status);
+                const contemBusca = !busca || normalizarTextoBusca(item.Tarefa).includes(busca);
+
+                return mesmoDev && mesmoProjeto && mesmoStatus && contemBusca;
+            });
+
+            processarEAtualizarTudo(filtrados);
+        }
+
+        function obterCelulaTarefa(item) {
+            if(item.LinkTarefaReal) {
+                return `<a class="tarefa-link" href="${item.LinkTarefaReal.trim()}" target="_blank">${item.Tarefa}</a>`;
+            }
+            return item.Tarefa || '-';
+        }
+
+        function obterBadgeStatus(item) {
+            const statusLimpo = (item.Status || '').trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const corFundo = mapaCoresStatus[statusLimpo] || '#f1f5f9';
+            const fundosEscuros = ['IMPEDIMENTOS', 'AGUARDANDO PENDENCIAS', 'NECESSITA CORRECAO', 'LIBERADO DEPLOY'];
+            const colTexto = fundosEscuros.includes(statusLimpo) ? '#ffffff' : '#1e293b';
+
+            return `<span class="badge-status" style="background-color: ${corFundo}; color: ${colTexto};">${item.Status || '-'}</span>`;
+        }
+
+        function montarTabelaAtividades(itens, tipo) {
+            if (itens.length === 0) {
+                const mensagem = tipo === 'entregues'
+                    ? 'Nenhuma atividade entregue encontrada para os filtros atuais.'
+                    : 'Nenhuma atividade não entregue em atraso.';
+                return `<p style="text-align:center; color: #10b981; font-weight:bold; margin-top: 20px;">${mensagem}</p>`;
+            }
+
+            const colunaFinal = tipo === 'entregues' ? 'Atraso Final' : 'Atraso Atual';
+            let htmlTabela = `<table class="tabela-ranking"><tr><th>Tarefa</th><th>Projeto</th><th>Dev</th><th>Previsto</th><th>Prazo Alvo</th><th>Status</th><th>${colunaFinal}</th></tr>`;
+
+            itens.forEach(item => {
+                const dev = item['Dev Responsável'] ? item['Dev Responsável'].split(' ')[0] : '-';
+                const atraso = tipo === 'entregues' ? item.AtrasoTratado : item.AtrasoPendente;
+                const atrasoLabel = atraso > 0 ? `${atraso} dias` : 'No prazo';
+
+                htmlTabela += `<tr>
+                    <td class="tarefa-nome">${obterCelulaTarefa(item)}</td>
+                    <td>${item.Projeto || '-'}</td>
+                    <td>${dev}</td>
+                    <td style="font-weight:600; color:#475569;">${item.HorasTratadas.toFixed(1)}h</td>
+                    <td style="color:#475569; font-weight:500;">${item.DataPrazoFormatada}</td>
+                    <td>${obterBadgeStatus(item)}</td>
+                    <td><span class="badge-atraso">${atrasoLabel}</span></td>
+                </tr>`;
+            });
+
+            htmlTabela += '</table>';
+            return htmlTabela;
         }
 
         function processarEAtualizarTudo(dados) {
@@ -320,58 +563,79 @@
             document.getElementById('kpiMediaAtraso').textContent = mediaAtraso + 'd';
             document.getElementById('kpiPostergacao').textContent = taxaPostergacao + '%';
 
-            // Tabela Corrigida (Limpa, Direta e com Hiperlinks)
-            const rankingAtrasos = [...demandasAtrasadas].sort((a, b) => b.AtrasoTratado - a.AtrasoTratado).slice(0, 6); 
+            // Tabela executiva: somente pendências em atraso, priorizadas pela maior exposição atual
+            const rankingAtrasos = dados
+                .filter(i => i.IsPendente && i.AtrasoPendente > 0)
+                .sort((a, b) => b.AtrasoPendente - a.AtrasoPendente || (b.HorasTratadas - a.HorasTratadas));
             const divRanking = document.getElementById('tabelaAtrasosContainer');
-            
-            if (rankingAtrasos.length === 0) {
-                divRanking.innerHTML = '<p style="text-align:center; color: #10b981; font-weight:bold; margin-top: 20px;">🎉 Nenhuma demanda em atraso!</p>';
-            } else {
-                let htmlTabela = '<table class="tabela-ranking"><tr><th>Tarefa</th><th>Projeto</th><th>Dev</th><th>Previsto</th><th>Prazo Alvo</th><th>Status</th><th>Atraso</th></tr>';
-                rankingAtrasos.forEach(item => {
-                    const dev = item['Dev Responsável'] ? item['Dev Responsável'].split(' ')[0] : '-';
-                    
-                    let celulaTarefa = '';
-                    if(item.LinkTarefaReal && item.LinkTarefaReal.trim() !== "" && item.LinkTarefaReal.trim() !== "-") {
-                        celulaTarefa = `<a class="tarefa-link" href="${item.LinkTarefaReal.trim()}" target="_blank">${item.Tarefa}</a>`;
-                    } else { celulaTarefa = item.Tarefa || '-'; }
-                    
-                    const statusLimpo = (item.Status || '').trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                    const corFundo = mapaCoresStatus[statusLimpo] || '#f1f5f9';
-                    const fundosEscuros = ['IMPEDIMENTOS', 'AGUARDANDO PENDENCIAS', 'NECESSITA CORRECAO', 'LIBERADO DEPLOY'];
-                    const colTexto = fundosEscuros.includes(statusLimpo) ? '#ffffff' : '#1e293b';
-                    
-                    htmlTabela += `<tr>
-                        <td class="tarefa-nome">${celulaTarefa}</td>
-                        <td>${item.Projeto || '-'}</td>
-                        <td>${dev}</td>
-                        <td style="font-weight:600; color:#475569;">${item.HorasTratadas.toFixed(1)}h</td>
-                        <td style="color:#475569; font-weight:500;">${item.DataPrazoFormatada}</td>
-                        <td><span class="badge-status" style="background-color: ${corFundo}; color: ${colTexto};">${item.Status || '-'}</span></td>
-                        <td><span class="badge-atraso">${item.AtrasoTratado} dias</span></td>
-                    </tr>`;
-                });
-                htmlTabela += '</table>';
-                divRanking.innerHTML = htmlTabela;
-            }
+            divRanking.innerHTML = montarTabelaAtividades(rankingAtrasos, 'pendentes');
+            document.getElementById('contadorPendentesAtrasadas').textContent = rankingAtrasos.length;
 
-            // Gráfico 1: Projetos
-            const qtdPorProjeto = {};
-            dados.forEach(i => { const p = i.Projeto || 'Sem Projeto'; qtdPorProjeto[p] = (qtdPorProjeto[p] || 0) + 1; });
-            let projOrdenados = Object.entries(qtdPorProjeto).sort((a,b) => b[1] - a[1]);
+            const entreguesOrdenadas = [...demandasEntregues].sort((a, b) => {
+                return b.AtrasoTratado - a.AtrasoTratado || String(a.Projeto || '').localeCompare(String(b.Projeto || ''), 'pt-BR');
+            });
+            document.getElementById('tabelaEntreguesContainer').innerHTML = montarTabelaAtividades(entreguesOrdenadas, 'entregues');
+            document.getElementById('contadorEntreguesTabela').textContent = entreguesOrdenadas.length;
+
+            // Gráfico 1: Projetos - previsto total dividido entre entregue e pendente
+            const volumePorProjeto = {};
+            dados.forEach(i => {
+                const chaveProjeto = obterChaveProjeto(i.Projeto);
+                if (!volumePorProjeto[chaveProjeto]) {
+                    volumePorProjeto[chaveProjeto] = { nome: obterNomeProjeto(i.Projeto), previsto: 0, realizado: 0, pendente: 0 };
+                }
+                volumePorProjeto[chaveProjeto].previsto += 1;
+                if (i.IsEntregueSucesso) {
+                    volumePorProjeto[chaveProjeto].realizado += 1;
+                } else {
+                    volumePorProjeto[chaveProjeto].pendente += 1;
+                }
+            });
+            let projOrdenados = Object.values(volumePorProjeto).sort((a,b) => b.previsto - a.previsto);
 
             if (projOrdenados.length > 6) {
                 const topProjetos = projOrdenados.slice(0, 6);
                 const outros = projOrdenados.slice(6);
-                const somaOutros = outros.reduce((acc, curr) => acc + curr[1], 0);
-                topProjetos.push([`Outros (${outros.length})`, somaOutros]);
+                const totaisOutros = outros.reduce((acc, curr) => {
+                    acc.previsto += curr.previsto;
+                    acc.realizado += curr.realizado;
+                    acc.pendente += curr.pendente;
+                    return acc;
+                }, { nome: `Outros (${outros.length})`, previsto: 0, realizado: 0, pendente: 0 });
+                topProjetos.push(totaisOutros);
                 projOrdenados = topProjetos;
             }
 
-            atualizarOuCriarChart('chartProjetosQtd', 'bar', projOrdenados.map(x => x[0]), [{
-                label: 'Qtd de Atividades', data: projOrdenados.map(x => x[1]), backgroundColor: '#3b82f6', borderRadius: 6
-            }], { 
-                plugins: { legend: { display: false }, datalabels: { display: true, anchor: 'end', align: 'top', color: '#1e293b', font: { weight: 'bold', size: 11 } } } 
+            const labelsProjetos = projOrdenados.map(x => x.nome);
+            const realizadosProjeto = projOrdenados.map(x => x.realizado);
+            const pendentesProjeto = projOrdenados.map(x => x.pendente);
+
+            atualizarOuCriarChart('chartProjetosQtd', 'bar', labelsProjetos, [
+                { label: 'Realizado (entregue)', data: realizadosProjeto, backgroundColor: '#10b981', borderRadius: 6, stack: 'volume' },
+                { label: 'Previsto ainda não entregue', data: pendentesProjeto, backgroundColor: '#ef4444', borderRadius: 6, stack: 'volume' }
+            ], { 
+                scales: {
+                    x: { stacked: true, ticks: { autoSkip: false, maxRotation: 30, minRotation: 0, font: { size: 10 } } },
+                    y: { stacked: true, beginAtZero: true, grace: '15%' }
+                },
+                plugins: {
+                    legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                    datalabels: {
+                        display: true,
+                        color: '#ffffff',
+                        font: { weight: 'bold', size: 11 },
+                        formatter: (v) => v > 0 ? v : ''
+                    },
+                    tooltip: {
+                        callbacks: {
+                            afterBody: (items) => {
+                                const idx = items[0].dataIndex;
+                                const total = realizadosProjeto[idx] + pendentesProjeto[idx];
+                                return 'Previsto total: ' + total;
+                            }
+                        }
+                    }
+                } 
             });
 
             // Gráfico 2: Status (Datalabels Ativados e Fixados na Renderização)
@@ -403,14 +667,17 @@
             const qaHorasProjeto = {};
             dados.forEach(i => {
                 if (i.IsRetidoEmQA) {
-                    const p = i.Projeto || 'Sem Projeto';
-                    qaHorasProjeto[p] = (qaHorasProjeto[p] || 0) + i.HorasTratadas;
+                    const chaveProjeto = obterChaveProjeto(i.Projeto);
+                    if (!qaHorasProjeto[chaveProjeto]) {
+                        qaHorasProjeto[chaveProjeto] = { nome: obterNomeProjeto(i.Projeto), horas: 0 };
+                    }
+                    qaHorasProjeto[chaveProjeto].horas += i.HorasTratadas;
                 }
             });
-            const qaOrdenado = Object.entries(qaHorasProjeto).sort((a,b) => b[1] - a[1]).slice(0,6);
+            const qaOrdenado = Object.values(qaHorasProjeto).sort((a,b) => b.horas - a.horas).slice(0,6);
 
-            atualizarOuCriarChart('chartQAGargaloHoras', 'bar', qaOrdenado.map(x => x[0]), [{
-                label: 'Horas Retidas em Fluxo de Testes', data: qaOrdenado.map(x => x[1]), backgroundColor: '#d5a6bd', borderRadius: 6
+            atualizarOuCriarChart('chartQAGargaloHoras', 'bar', qaOrdenado.map(x => x.nome), [{
+                label: 'Horas Retidas em Fluxo de Testes', data: qaOrdenado.map(x => x.horas), backgroundColor: '#d5a6bd', borderRadius: 6
             }], {
                 plugins: {
                     legend: { display: false },
@@ -517,11 +784,31 @@
 
         copyDataAndCalculate(document.getElementById('filtroMes').value);
         document.getElementById('filtroMes').addEventListener('change', (e) => copyDataAndCalculate(e.target.value));
-        document.getElementById('filtroDev').addEventListener('change', (e) => {
-            const dev = e.target.value;
-            const filtrados = dev === 'Todos' ? dadosBrutos : dadosBrutos.filter(i => i['Dev Responsável'] === dev);
-            processarEAtualizarTudo(filtrados);
+        document.getElementById('filtroDev').addEventListener('change', aplicarFiltros);
+        document.getElementById('btnFiltroProjeto').addEventListener('click', () => {
+            document.getElementById('multiProjeto').classList.toggle('open');
         });
+        document.getElementById('listaProjetos').addEventListener('change', (e) => {
+            const todos = document.getElementById('projetoTodos');
+            const opcoesProjeto = [...document.querySelectorAll('#listaProjetos input[data-projeto]')];
+
+            if (e.target.id === 'projetoTodos') {
+                todos.checked = true;
+                opcoesProjeto.forEach(input => { input.checked = false; });
+            } else if (e.target.dataset.projeto !== undefined) {
+                todos.checked = !opcoesProjeto.some(input => input.checked);
+            }
+
+            atualizarRotuloProjeto();
+            aplicarFiltros();
+        });
+        document.addEventListener('click', (e) => {
+            if (!document.getElementById('multiProjeto').contains(e.target)) {
+                document.getElementById('multiProjeto').classList.remove('open');
+            }
+        });
+        document.getElementById('filtroStatus').addEventListener('change', aplicarFiltros);
+        document.getElementById('buscaAtividade').addEventListener('input', aplicarFiltros);
     </script>
 </body>
 </html>
