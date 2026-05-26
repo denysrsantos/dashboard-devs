@@ -272,16 +272,44 @@
             'CONCLUIDO': '#10b981', 'PAUSADA': '#f59e0b'
         };
 
+        function normalizarNomeColuna(nome) {
+            return String(nome || '').trim().toUpperCase()
+                .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                .replace(/^\uFEFF/, '')
+                .replace(/\s+/g, ' ');
+        }
+
+        function obterValorColuna(item, nomesPossiveis) {
+            const mapaColunas = Object.keys(item).reduce((acc, coluna) => {
+                acc[normalizarNomeColuna(coluna)] = coluna;
+                return acc;
+            }, {});
+
+            for (const nome of nomesPossiveis) {
+                const colunaReal = mapaColunas[normalizarNomeColuna(nome)];
+                if (colunaReal) return String(item[colunaReal] || '').trim();
+            }
+
+            return '';
+        }
+
+        function normalizarUrl(valor) {
+            const texto = String(valor || '').trim();
+            if (/^https?:\/\//i.test(texto)) return texto;
+            if (/^www\./i.test(texto)) return `https://${texto}`;
+            if (/^[a-z0-9.-]+\.[a-z]{2,}(\/|$)/i.test(texto)) return `https://${texto}`;
+            return '';
+        }
+
         function normalizarUrlTarefa(item) {
             const possiveisColunas = [
+                'Link da Atividade', 'Link Atividade', 'URL da Atividade', 'Url da Atividade',
                 'Link da Tarefa', 'Link Tarefa', 'URL da Tarefa', 'Url da Tarefa',
-                'Link', 'URL', 'Url', 'Tarefa Link'
+                'Link', 'URL', 'Url', 'Tarefa Link', 'Atividade Link'
             ];
 
-            for (const coluna of possiveisColunas) {
-                const valor = String(item[coluna] || '').trim();
-                if (/^https?:\/\//i.test(valor)) return valor;
-            }
+            const urlColuna = normalizarUrl(obterValorColuna(item, possiveisColunas));
+            if (urlColuna) return urlColuna;
 
             const tarefa = String(item.Tarefa || '');
             const urlNaTarefa = tarefa.match(/https?:\/\/\S+/i);
@@ -306,9 +334,9 @@
         }
 
         function copyDataAndCalculate(nomeAba) {
-            const urlCSV = `https://docs.google.com/spreadsheets/d/${idPlanilha}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(nomeAba)}`;
+            const urlCSV = `https://docs.google.com/spreadsheets/d/${idPlanilha}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(nomeAba)}&_=${Date.now()}`;
 
-            fetch(urlCSV)
+            fetch(urlCSV, { cache: 'no-store' })
                 .then(response => {
                     if (!response.ok) throw new Error('Falha ao carregar CSV da planilha');
                     return response.text();
@@ -316,7 +344,7 @@
                 .then(csvText => {
                     Papa.parse(csvText, {
                 header: true,
-                transformHeader: function(header) { return header.trim(); },
+                transformHeader: function(header) { return String(header || '').replace(/^\uFEFF/, '').trim().replace(/\s+/g, ' '); },
                 complete: function(results) {
                     dadosBrutos = results.data.filter(linha => linha.Projeto && linha.Projeto.trim() !== "");
                     
@@ -327,10 +355,16 @@
 
                         const dataInicial = extrairDataPure(item['Data Prometida Inicial']);
                         const dataFinal = extrairDataPure(item['Data Prometida Final']);
-                        const dataEntrega = extrairDataPure(item['Data Entregue']) || extrairDataPure(item['Data QA ok']) || extrairDataPure(item['Data Cliente OK']);
+                        const dataEntregue = extrairDataPure(item['Data Entregue']);
+                        const dataQAOk = extrairDataPure(item['Data QA ok']);
+                        const dataClienteOk = extrairDataPure(item['Data Cliente OK']);
+                        const dataEntrega = dataEntregue || dataQAOk || dataClienteOk;
 
                         const dataPrazoAlvo = dataFinal || dataInicial;
                         item.DataPrazoFormatada = dataPrazoAlvo ? dataPrazoAlvo.toLocaleDateString('pt-BR') : '-';
+                        item.DataEntregaOrdenacao = dataEntrega ? dataEntrega.getTime() : 0;
+                        item.DataEntregueFormatada = dataEntregue ? dataEntregue.toLocaleDateString('pt-BR') : '-';
+                        item.DataQAOkFormatada = dataQAOk ? dataQAOk.toLocaleDateString('pt-BR') : '-';
                         item.LinkTarefaReal = normalizarUrlTarefa(item);
 
                         item.IsEntregueSucesso = [
@@ -514,17 +548,21 @@
             if (itens.length === 0) {
                 const mensagem = tipo === 'entregues'
                     ? 'Nenhuma atividade entregue encontrada para os filtros atuais.'
-                    : 'Nenhuma atividade não entregue em atraso.';
+                    : 'Nenhuma atividade não entregue encontrada para os filtros atuais.';
                 return `<p style="text-align:center; color: #10b981; font-weight:bold; margin-top: 20px;">${mensagem}</p>`;
             }
 
             const colunaFinal = tipo === 'entregues' ? 'Atraso Final' : 'Atraso Atual';
-            let htmlTabela = `<table class="tabela-ranking"><tr><th>Tarefa</th><th>Projeto</th><th>Dev</th><th>Previsto</th><th>Prazo Alvo</th><th>Status</th><th>${colunaFinal}</th></tr>`;
+            const colunasEntrega = tipo === 'entregues' ? '<th>Data Entrega</th><th>Data QA</th>' : '';
+            let htmlTabela = `<table class="tabela-ranking"><tr><th>Tarefa</th><th>Projeto</th><th>Dev</th><th>Previsto</th><th>Prazo Alvo</th>${colunasEntrega}<th>Status</th><th>${colunaFinal}</th></tr>`;
 
             itens.forEach(item => {
                 const dev = item['Dev Responsável'] ? item['Dev Responsável'].split(' ')[0] : '-';
                 const atraso = tipo === 'entregues' ? item.AtrasoTratado : item.AtrasoPendente;
                 const atrasoLabel = atraso > 0 ? `${atraso} dias` : 'No prazo';
+                const celulasEntrega = tipo === 'entregues'
+                    ? `<td style="color:#475569; font-weight:500;">${item.DataEntregueFormatada || '-'}</td><td style="color:#475569; font-weight:500;">${item.DataQAOkFormatada || '-'}</td>`
+                    : '';
 
                 htmlTabela += `<tr>
                     <td class="tarefa-nome">${obterCelulaTarefa(item)}</td>
@@ -532,6 +570,7 @@
                     <td>${dev}</td>
                     <td style="font-weight:600; color:#475569;">${item.HorasTratadas.toFixed(1)}h</td>
                     <td style="color:#475569; font-weight:500;">${item.DataPrazoFormatada}</td>
+                    ${celulasEntrega}
                     <td>${obterBadgeStatus(item)}</td>
                     <td><span class="badge-atraso">${atrasoLabel}</span></td>
                 </tr>`;
@@ -563,16 +602,16 @@
             document.getElementById('kpiMediaAtraso').textContent = mediaAtraso + 'd';
             document.getElementById('kpiPostergacao').textContent = taxaPostergacao + '%';
 
-            // Tabela executiva: somente pendências em atraso, priorizadas pela maior exposição atual
+            // Tabela executiva: pendências priorizadas pela maior exposição atual
             const rankingAtrasos = dados
-                .filter(i => i.IsPendente && i.AtrasoPendente > 0)
+                .filter(i => i.IsPendente)
                 .sort((a, b) => b.AtrasoPendente - a.AtrasoPendente || (b.HorasTratadas - a.HorasTratadas));
             const divRanking = document.getElementById('tabelaAtrasosContainer');
             divRanking.innerHTML = montarTabelaAtividades(rankingAtrasos, 'pendentes');
             document.getElementById('contadorPendentesAtrasadas').textContent = rankingAtrasos.length;
 
             const entreguesOrdenadas = [...demandasEntregues].sort((a, b) => {
-                return b.AtrasoTratado - a.AtrasoTratado || String(a.Projeto || '').localeCompare(String(b.Projeto || ''), 'pt-BR');
+                return b.DataEntregaOrdenacao - a.DataEntregaOrdenacao || String(a.Projeto || '').localeCompare(String(b.Projeto || ''), 'pt-BR');
             });
             document.getElementById('tabelaEntreguesContainer').innerHTML = montarTabelaAtividades(entreguesOrdenadas, 'entregues');
             document.getElementById('contadorEntreguesTabela').textContent = entreguesOrdenadas.length;
