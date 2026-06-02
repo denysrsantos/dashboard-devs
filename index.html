@@ -365,6 +365,7 @@
                         const dataPrazoAlvo = dataFinal || dataInicial;
                         item.DataPrazoFormatada = dataPrazoAlvo ? dataPrazoAlvo.toLocaleDateString('pt-BR') : '-';
                         item.DataEntregaOrdenacao = dataEntrega ? dataEntrega.getTime() : 0;
+                        item.DataEntregaFormatada = dataEntrega ? dataEntrega.toLocaleDateString('pt-BR') : '-';
                         item.DataEntregueFormatada = dataEntregue ? dataEntregue.toLocaleDateString('pt-BR') : '-';
                         item.DataQAOkFormatada = dataQAOk ? dataQAOk.toLocaleDateString('pt-BR') : '-';
                         item.LinkTarefaReal = normalizarUrlTarefa(item);
@@ -394,9 +395,9 @@
                         item.IsPendente = !item.IsEntregueSucesso;
                         let atrasoPendente = 0;
                         if (item.IsPendente && dataPrazoAlvo) {
-                            const hoje = new Date();
-                            hoje.setHours(0, 0, 0, 0);
-                            atrasoPendente = Math.round((hoje.getTime() - dataPrazoAlvo.getTime()) / (1000 * 60 * 60 * 24));
+                            const dataReferenciaAtraso = dataEntrega || new Date();
+                            dataReferenciaAtraso.setHours(0, 0, 0, 0);
+                            atrasoPendente = Math.round((dataReferenciaAtraso.getTime() - dataPrazoAlvo.getTime()) / (1000 * 60 * 60 * 24));
                         }
                         item.AtrasoPendente = atrasoPendente > 0 ? atrasoPendente : 0;
                         const colPostergado = String(item['Postergação'] || '').trim().toUpperCase();
@@ -555,7 +556,7 @@
             }
 
             const colunaFinal = tipo === 'entregues' ? 'Atraso Final' : 'Atraso Atual';
-            const colunasEntrega = tipo === 'entregues' ? '<th>Data Entrega</th><th>Data QA</th>' : '';
+            const colunasEntrega = tipo === 'entregues' ? '<th>Data Entrega</th><th>Data QA</th>' : '<th>Data Entrega</th>';
             let htmlTabela = `<table class="tabela-ranking"><tr><th>Tarefa</th><th>Projeto</th><th>Dev</th><th>Previsto</th><th>Prazo Alvo</th>${colunasEntrega}<th>Status</th><th>${colunaFinal}</th></tr>`;
 
             itens.forEach(item => {
@@ -564,7 +565,7 @@
                 const atrasoLabel = atraso > 0 ? `${atraso} dias` : 'No prazo';
                 const celulasEntrega = tipo === 'entregues'
                     ? `<td style="color:#475569; font-weight:500;">${item.DataEntregueFormatada || '-'}</td><td style="color:#475569; font-weight:500;">${item.DataQAOkFormatada || '-'}</td>`
-                    : '';
+                    : `<td style="color:#475569; font-weight:500;">${item.DataEntregaFormatada || '-'}</td>`;
 
                 htmlTabela += `<tr>
                     <td class="tarefa-nome">${obterCelulaTarefa(item)}</td>
