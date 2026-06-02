@@ -216,7 +216,7 @@
                 <h3>Conferência de Atividades</h3>
                 <div class="accordion-list">
                     <details class="accordion-item" open>
-                        <summary><span class="accordion-title">Atividades Não Entregues Ordenadas pelo Maior Atraso</span><span class="accordion-meta"><span id="contadorPendentesAtrasadas">0</span><span class="accordion-toggle"></span></span></summary>
+                        <summary><span class="accordion-title">Atividades Não Entregues Ordenadas pelo Prazo Alvo Mais Antigo</span><span class="accordion-meta"><span id="contadorPendentesAtrasadas">0</span><span class="accordion-toggle"></span></span></summary>
                         <div class="accordion-content" id="tabelaAtrasosContainer"></div>
                     </details>
                     <details class="accordion-item">
@@ -363,6 +363,7 @@
                         const dataEntrega = dataEntregue || dataQAOk || dataClienteOk;
 
                         const dataPrazoAlvo = dataFinal || dataInicial;
+                        item.DataPrazoOrdenacao = dataPrazoAlvo ? dataPrazoAlvo.getTime() : Number.MAX_SAFE_INTEGER;
                         item.DataPrazoFormatada = dataPrazoAlvo ? dataPrazoAlvo.toLocaleDateString('pt-BR') : '-';
                         item.DataEntregaOrdenacao = dataEntrega ? dataEntrega.getTime() : 0;
                         item.DataEntregaFormatada = dataEntrega ? dataEntrega.toLocaleDateString('pt-BR') : '-';
@@ -605,10 +606,10 @@
             document.getElementById('kpiMediaAtraso').textContent = mediaAtraso + 'd';
             document.getElementById('kpiPostergacao').textContent = taxaPostergacao + '%';
 
-            // Tabela executiva: pendências priorizadas pela maior exposição atual
+            // Tabela executiva: pendências priorizadas pelo prazo alvo mais antigo
             const rankingAtrasos = dados
                 .filter(i => i.IsPendente)
-                .sort((a, b) => b.AtrasoPendente - a.AtrasoPendente || (b.HorasTratadas - a.HorasTratadas));
+                .sort((a, b) => a.DataPrazoOrdenacao - b.DataPrazoOrdenacao || b.AtrasoPendente - a.AtrasoPendente || (b.HorasTratadas - a.HorasTratadas));
             const divRanking = document.getElementById('tabelaAtrasosContainer');
             divRanking.innerHTML = montarTabelaAtividades(rankingAtrasos, 'pendentes');
             document.getElementById('contadorPendentesAtrasadas').textContent = rankingAtrasos.length;
